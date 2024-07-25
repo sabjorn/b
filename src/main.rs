@@ -1,5 +1,11 @@
-use clap::{ArgGroup, Parser, Subcommand};
-use log::{debug, info, warn};
+mod core;
+mod commands;
+
+use commands::{create_account, transfer, check_balance};
+use core::types::AccountId;
+use clap::{Parser, Subcommand};
+use log::info;
+
 
 #[derive(Parser)]
 #[clap(name = "my_app", version = "1.0", author = "Your Name", about = "A CLI application example")]
@@ -18,15 +24,17 @@ struct Cli {
 enum Commands {
     StartNode,
     CreateAccount {
-        id_of_account: i32,
+        account: AccountId,
         starting_balance: f64,
     },
     Transfer {
-        from_account: i32,
-        to_account: i32,
+        from_account: AccountId,
+        to_account: AccountId,
         amount: f64,
     },
-    Balance,
+    Balance {
+        account: AccountId,
+    }, 
 }
 
 fn setup_logger(verbose: bool) -> Result<(), fern::InitError> {
@@ -61,12 +69,12 @@ fn main() {
             info!("Starting the node server on port {}...", cli.port);
             start_node(cli.port);
         }
-        Commands::CreateAccount { id_of_account, starting_balance } => {
+        Commands::CreateAccount { account, starting_balance } => {
             info!(
                 "Creating a new account with ID {} and starting balance {} on port {}...",
-                id_of_account, starting_balance, cli.port
+                account, starting_balance, cli.port
             );
-            create_account(*id_of_account, *starting_balance, cli.port);
+            create_account(*account, *starting_balance, cli.port);
         }
         Commands::Transfer {
             from_account,
@@ -79,7 +87,7 @@ fn main() {
             );
             transfer(*from_account, *to_account, *amount, cli.port);
         }
-        Commands::Balance => {
+        Commands::Balance {account} => {
             info!("Checking balance on port {}...", cli.port);
             check_balance(cli.port);
         }
@@ -91,20 +99,4 @@ fn start_node(port: u16) {
     info!("Server stopped.");
 }
 
-fn create_account(id_of_account: i32, starting_balance: f64, port: u16) {
-    info!(
-        "Account with ID {} created with starting balance {} on port {}.",
-        id_of_account, starting_balance, port
-    );
-}
 
-fn transfer(from_account: i32, to_account: i32, amount: f64, port: u16) {
-    info!(
-        "Transferred {} from account {} to account {} on port {}.",
-        amount, from_account, to_account, port
-    );
-}
-
-fn check_balance(port: u16) {
-    info!("Balance checked on port {}.", port);
-}
