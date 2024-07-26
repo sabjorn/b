@@ -5,8 +5,6 @@ mod server;
 
 use clap::{Parser, Subcommand};
 use client::{run_client, ClientCommands};
-use commands::{check_balance, create_account, transfer};
-use core::types::AccountId;
 use log::info;
 use server::start_node;
 
@@ -27,7 +25,6 @@ struct Cli {
     #[clap(subcommand)]
     command: Commands,
 }
-
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {

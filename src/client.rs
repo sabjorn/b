@@ -1,10 +1,12 @@
 use crate::core::types::AccountId;
+use bincode::{deserialize, serialize};
 use clap::Subcommand;
-use log::debug;
+use log::{debug, error, info};
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-#[derive(Debug, Clone, Subcommand)]
+#[derive(Debug, Clone, Subcommand, Serialize, Deserialize)]
 pub enum ClientCommands {
     CreateAccount {
         account: AccountId,
@@ -20,32 +22,28 @@ pub enum ClientCommands {
     },
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ClientResult {
+    Ok(i64),
+    Err(String),
+}
+
 pub fn run_client(command: ClientCommands, port: u16) {
     let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("fix me");
     debug!("Client connected to the server");
 
-    let message = match command {
-        ClientCommands::CreateAccount {
-            account,
-            starting_balance,
-        } => {
-            format!(
-                "Create Account -- account number: {}, starting_balance: {}",
-                account, starting_balance
-            )
-        }
-        _ => {
-            format!("lol")
-        }
-    };
-
+    let serialized_command = serialize(&command).expect("Failed to serialize command");
     stream
-        .write(message.as_bytes())
-        .expect("actually -- fix me");
-    println!("Sent: {}", message);
+        .write(&serialized_command)
+        .expect("failed to send serialized command");
+    info!("Sent command: {:?}", command);
 
     let mut buffer = [0; 512];
     let bytes_read = stream.read(&mut buffer).expect("no - fix me");
-    let received = String::from_utf8_lossy(&buffer[..bytes_read]);
-    println!("Received: {}", received);
+    let return_value: Result<i64, String> = deserialize(&buffer[..bytes_read]).unwrap();
+
+    match return_value {
+        Ok(val) => info!("recieved id: {}", val),
+        Err(e) => error!("recieved error: {}", e),
+    }
 }

@@ -1,3 +1,5 @@
+use crate::client::{ClientCommands, ClientResult};
+use bincode::{deserialize, serialize};
 use log::{error, info};
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
@@ -6,26 +8,26 @@ use std::thread;
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0; 512];
     loop {
-        let bytes_read = stream.read(&mut buffer).unwrap_or_else(|e| {
-            error!("Failed to read from socket");
-            panic!("Program will exit due to error.");
-        });
-
+        let bytes_read = stream
+            .read(&mut buffer)
+            .expect("Failed to read from socket");
         if bytes_read == 0 {
             return;
         }
-        // unpack
-        // match
-        // respond
-        //
 
-        info!(
-            "Received: {}",
-            String::from_utf8_lossy(&buffer[..bytes_read])
-        );
+        let command: Result<ClientCommands, _> = deserialize(&buffer[..bytes_read]);
+        let return_value: Result<i64, String> = match command {
+            Ok(cmd) => {
+                info!("Received command: {:?}", cmd);
+                Ok(123)
+            }
+            Err(e) => Err(format!("Failed to parse command: {}", e)),
+        };
+
+        let serialized_command = serialize(&return_value).expect("Failed to serialize command");
         stream
-            .write(&buffer[..bytes_read])
-            .expect("Failed to write to socket");
+            .write(&serialized_command)
+            .expect("failed to send serialized command");
     }
 }
 
