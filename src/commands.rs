@@ -1,7 +1,7 @@
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use crate::core::types::AccountId;
 use log::info;
+use std::io::{Read, Write};
+use std::net::TcpStream;
 
 pub fn create_account(account: AccountId, starting_balance: f64, port: u16) {
     info!(
@@ -12,12 +12,17 @@ pub fn create_account(account: AccountId, starting_balance: f64, port: u16) {
     println!("Connected to the server");
 
     let message = "Hello from client!";
-    stream.write(message.as_bytes()).expect("actually -- fix me");
+    stream
+        .write(message.as_bytes())
+        .expect("actually -- fix me");
     println!("Sent: {}", message);
 
     let mut buffer = [0; 512];
     let bytes_read = stream.read(&mut buffer).expect("no - fix me");
-    println!("Received: {}", String::from_utf8_lossy(&buffer[..bytes_read]));
+    println!(
+        "Received: {}",
+        String::from_utf8_lossy(&buffer[..bytes_read])
+    );
 
     //Ok(())
 }
