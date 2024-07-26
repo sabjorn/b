@@ -22,12 +22,6 @@ pub enum ClientCommands {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ClientResult {
-    Ok(i64),
-    Err(String),
-}
-
 pub fn run_client(command: ClientCommands, port: u16) {
     let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("fix me");
     debug!("Client connected to the server");

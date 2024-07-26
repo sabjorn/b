@@ -1,4 +1,4 @@
-use crate::client::{ClientCommands, ClientResult};
+use crate::client::ClientCommands;
 use bincode::{deserialize, serialize};
 use log::{error, info};
 use std::io::{Read, Write};
@@ -16,13 +16,32 @@ fn handle_client(mut stream: TcpStream) {
             return;
         }
 
-        let command: Result<ClientCommands, _> = deserialize(&buffer[..bytes_read]);
+        let command: ClientCommands = match deserialize(&buffer[..bytes_read]) {
+            Ok(cmd) => cmd,
+            Err(e) => {
+                let error_message = format!("Failed to deserialize: {}", e);
+                error!("{}", &error_message);
+                let return_value: Result<(), String> = Err(error_message);
+                let serialized_command =
+                    serialize(&return_value).expect("Failed to serialize command");
+
+                stream
+                    .write(&serialized_command)
+                    .expect("failed to send serialized command");
+                return;
+            }
+        };
+
         let return_value: Result<i64, String> = match command {
-            Ok(cmd) => {
-                info!("Received command: {:?}", cmd);
+            ClientCommands::Transfer {
+                from_account,
+                to_account,
+                amount,
+            } => {
+                info!("Received Transfer command");
                 Ok(123)
             }
-            Err(e) => Err(format!("Failed to parse command: {}", e)),
+            _ => Err("Got command that is not implemented".to_string()),
         };
 
         let serialized_command = serialize(&return_value).expect("Failed to serialize command");
