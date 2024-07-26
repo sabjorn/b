@@ -11,6 +11,7 @@ fn handle_client(mut stream: TcpStream) {
         let bytes_read = stream
             .read(&mut buffer)
             .expect("Failed to read from socket");
+
         if bytes_read == 0 {
             return;
         }
@@ -28,6 +29,8 @@ fn handle_client(mut stream: TcpStream) {
         stream
             .write(&serialized_command)
             .expect("failed to send serialized command");
+
+        return;
     }
 }
 
