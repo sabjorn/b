@@ -4,7 +4,7 @@ mod core;
 mod server;
 
 use clap::{Parser, Subcommand};
-use client::{run_client, Command as ClientCommand};
+use client::{run_client, ClientCommands};
 use commands::{check_balance, create_account, transfer};
 use core::types::AccountId;
 use log::info;
@@ -28,21 +28,12 @@ struct Cli {
     command: Commands,
 }
 
-#[derive(Subcommand)]
-enum Commands {
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum Commands {
     StartNode,
-    CreateAccount {
-        account: AccountId,
-        starting_balance: f64,
-    },
-    Transfer {
-        from_account: AccountId,
-        to_account: AccountId,
-        amount: f64,
-    },
-    Balance {
-        account: AccountId,
-    },
+    #[clap(flatten)]
+    Client(ClientCommands), // Include ClientCommands as a variant
 }
 
 fn setup_logger(verbose: bool) -> Result<(), fern::InitError> {
@@ -77,34 +68,9 @@ fn main() {
             info!("Starting the node server on port {}...", cli.port);
             start_node(cli.port);
         }
-        Commands::CreateAccount {
-            account,
-            starting_balance,
-        } => {
-            info!(
-                "Creating a new account with ID {} and starting balance {} on port {}...",
-                account, starting_balance, cli.port
-            );
-            let command = ClientCommand::CreateAccount {
-                account,
-                starting_balance,
-            };
-            run_client(command, cli.port)
-        }
-        Commands::Transfer {
-            from_account,
-            to_account,
-            amount,
-        } => {
-            info!(
-                "Transferring {} from account {} to account {} on port {}...",
-                amount, from_account, to_account, cli.port
-            );
-            transfer(from_account, to_account, amount, cli.port);
-        }
-        Commands::Balance { account } => {
-            info!("Checking balance on port {}...", cli.port);
-            check_balance(account, cli.port);
+        Commands::Client(client_command) => {
+            info!("Connecting to node on port {}...", cli.port);
+            run_client(client_command, cli.port);
         }
     }
 }

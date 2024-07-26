@@ -1,10 +1,11 @@
 use crate::core::types::AccountId;
+use clap::Subcommand;
 use log::debug;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-pub enum Command {
-    //StartNode,
+#[derive(Debug, Clone, Subcommand)]
+pub enum ClientCommands {
     CreateAccount {
         account: AccountId,
         starting_balance: f64,
@@ -19,12 +20,12 @@ pub enum Command {
     },
 }
 
-pub fn run_client(command: Command, port: u16) {
+pub fn run_client(command: ClientCommands, port: u16) {
     let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("fix me");
     debug!("Client connected to the server");
 
     let message = match command {
-        Command::CreateAccount {
+        ClientCommands::CreateAccount {
             account,
             starting_balance,
         } => {
