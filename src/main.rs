@@ -1,10 +1,12 @@
 mod commands;
 mod core;
+mod server;
 
 use clap::{Parser, Subcommand};
 use commands::{check_balance, create_account, transfer};
 use core::types::AccountId;
 use log::info;
+use server::start_node;
 
 #[derive(Parser)]
 #[clap(
@@ -99,9 +101,4 @@ fn main() {
             check_balance(account, cli.port);
         }
     }
-}
-
-fn start_node(port: u16) {
-    info!("Server is running on port {}. Press Ctrl-C to stop.", port);
-    info!("Server stopped.");
 }
