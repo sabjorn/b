@@ -17,11 +17,11 @@ pub struct Block {
     pub transactions: Transactions,
 }
 
-trait TransactionTotal {
+pub trait TranscationInfo {
     fn calculate_total(&self, account: AccountId) -> Option<f64>;
 }
 
-impl TransactionTotal for Transactions {
+impl TranscationInfo for Transactions {
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         let sum: Option<f64> = self
             .iter()
@@ -39,13 +39,13 @@ impl TransactionTotal for Transactions {
     }
 }
 
-impl TransactionTotal for Block {
+impl TranscationInfo for Block {
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         self.transactions.calculate_total(account)
     }
 }
 
-impl TransactionTotal for Blocks {
+impl TranscationInfo for Blocks {
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         let sum: Option<f64> = self
             .iter()

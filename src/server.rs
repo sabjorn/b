@@ -1,3 +1,4 @@
+use crate::core::types::TranscationInfo;
 use crate::client::ClientCommands;
 use crate::core::types::{Block, BlockId, Blocks, Transaction, Transactions};
 use bincode::{deserialize, serialize};
@@ -8,7 +9,7 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
 
-fn handle_client(mut stream: TcpStream) {
+fn handle_client(mut stream: TcpStream, shared_blocks: Arc<RwLock<Blocks>>) {
     let mut buffer = [0; 512];
     loop {
         let bytes_read = stream
@@ -36,6 +37,14 @@ fn handle_client(mut stream: TcpStream) {
         };
 
         let return_value: Result<i64, String> = match command {
+            ClientCommands::Balance { account } => {
+                info!("account_id: {} recieved", account);
+                let blocks = shared_blocks.read().unwrap();
+                match (*blocks).calculate_total(account) {
+                    Some(value) => Ok(value as i64),
+                    None => Err(format!("could not find balance for account: {}", account))
+                }
+            }
             ClientCommands::Transfer {
                 from_account,
                 to_account,
@@ -78,6 +87,7 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
 
         let mut blocks: Blocks = Vec::new();
         loop {
+            thread::sleep(interval);
             info!("Periodic thread running.");
             let mut transcations = transcation_queue_clone.lock().unwrap();
 
@@ -95,17 +105,16 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
             let mut notified = lock.lock().unwrap();
             *notified = true;
             cvar.notify_all();
-
-            thread::sleep(interval);
         }
     });
 
     for stream in listener.incoming() {
+        let blocks_clone = Arc::clone(&blocks);
         match stream {
             Ok(stream) => {
                 // clone signal
                 thread::spawn(|| {
-                    handle_client(stream);
+                    handle_client(stream, blocks_clone);
                 });
             }
             Err(e) => {
