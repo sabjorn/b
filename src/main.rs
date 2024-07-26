@@ -1,5 +1,4 @@
 mod client;
-mod commands;
 mod core;
 mod server;
 
