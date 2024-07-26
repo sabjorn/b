@@ -1,8 +1,10 @@
+mod client;
 mod commands;
 mod core;
 mod server;
 
 use clap::{Parser, Subcommand};
+use client::{run_client, Command as ClientCommand};
 use commands::{check_balance, create_account, transfer};
 use core::types::AccountId;
 use log::info;
@@ -83,7 +85,11 @@ fn main() {
                 "Creating a new account with ID {} and starting balance {} on port {}...",
                 account, starting_balance, cli.port
             );
-            create_account(account, starting_balance, cli.port);
+            let command = ClientCommand::CreateAccount {
+                account,
+                starting_balance,
+            };
+            run_client(command, cli.port)
         }
         Commands::Transfer {
             from_account,
