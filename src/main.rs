@@ -68,7 +68,7 @@ fn main() {
 
     setup_logger(cli.verbose).expect("Failed to initialize logger");
 
-    match &cli.command {
+    match cli.command {
         Commands::StartNode => {
             info!("Starting the node server on port {}...", cli.port);
             start_node(cli.port);
@@ -81,7 +81,7 @@ fn main() {
                 "Creating a new account with ID {} and starting balance {} on port {}...",
                 account, starting_balance, cli.port
             );
-            create_account(*account, *starting_balance, cli.port);
+            create_account(account, starting_balance, cli.port);
         }
         Commands::Transfer {
             from_account,
@@ -92,11 +92,11 @@ fn main() {
                 "Transferring {} from account {} to account {} on port {}...",
                 amount, from_account, to_account, cli.port
             );
-            transfer(*from_account, *to_account, *amount, cli.port);
+            transfer(from_account, to_account, amount, cli.port);
         }
         Commands::Balance { account } => {
             info!("Checking balance on port {}...", cli.port);
-            check_balance(cli.port);
+            check_balance(account, cli.port);
         }
     }
 }

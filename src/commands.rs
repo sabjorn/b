@@ -15,6 +15,6 @@ pub fn transfer(from_account: AccountId, to_account: AccountId, amount: f64, por
     );
 }
 
-pub fn check_balance(port: u16) {
-    info!("Balance checked on port {}.", port);
+pub fn check_balance(account: AccountId, port: u16) {
+    info!("Balance checked for account {} on port {}.", account, port);
 }
