@@ -16,25 +16,34 @@ trait TransactionTotal {
 
 impl TransactionTotal for Transactions {
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
-        let mut sum = 0.;
         let mut found = false;
-
-        for t in self {
-            if t.to == account {
-                sum += t.amount;
-                found = true;
-            }
-            if t.from == account {
-                sum -= t.amount;
-                found = true;
-            }
-        }
+        let sum: f64 = self
+            .into_iter()
+            .filter(|t| {
+                if t.to == account || t.from == account {
+                    found = true;
+                    return true;
+                }
+                
+                false
+            })
+            .map(|t| {
+                if t.to == account {
+                    return t.amount;
+                }
+                if t.from == account {
+                    return -t.amount;
+                }
+                
+                0.0
+            })
+            .sum();
 
         if found {
-            Some(sum)
-        } else {
-            None
+            return Some(sum);
         }
+        
+        None
     }
 }
 
