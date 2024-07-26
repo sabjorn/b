@@ -10,6 +10,11 @@ pub struct Transaction {
     amount: f64,
 }
 
+pub struct Block {
+    id: BlockId,
+    transactions: Transactions,
+}
+
 trait TransactionTotal {
     fn calculate_total(&self, account: AccountId) -> Option<f64>;
 }
@@ -24,7 +29,7 @@ impl TransactionTotal for Transactions {
                     found = true;
                     return true;
                 }
-                
+
                 false
             })
             .map(|t| {
@@ -34,7 +39,7 @@ impl TransactionTotal for Transactions {
                 if t.from == account {
                     return -t.amount;
                 }
-                
+
                 0.0
             })
             .sum();
@@ -42,14 +47,9 @@ impl TransactionTotal for Transactions {
         if found {
             return Some(sum);
         }
-        
+
         None
     }
-}
-
-pub struct Block {
-    id: BlockId,
-    transactions: Transactions,
 }
 
 impl TransactionTotal for Block {
@@ -61,25 +61,26 @@ impl TransactionTotal for Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     mod transactions_tests {
         use super::*;
 
         #[test]
-        fn test_calculate_total_for_existing_id(){
-            let transactions: Transactions = vec!(
-                Transaction{ 
+        fn test_calculate_total_for_existing_id() {
+            let transactions: Transactions = vec![
+                Transaction {
                     id: 1,
                     to: 1,
                     from: 2,
-                    amount: 2.34
+                    amount: 2.34,
                 },
-                Transaction{ 
+                Transaction {
                     id: 2,
                     to: 1,
                     from: 2,
-                    amount: 10.00
-                });
+                    amount: 10.00,
+                },
+            ];
 
             let result = transactions.calculate_total(1);
             assert!(result.is_some());
@@ -91,76 +92,81 @@ mod tests {
         }
 
         #[test]
-        fn test_calculate_total_no_id_returns_none(){
-            let transactions = vec!(
-                Transaction{ 
+        fn test_calculate_total_no_id_returns_none() {
+            let transactions = vec![
+                Transaction {
                     id: 1,
                     to: 1,
                     from: 2,
-                    amount: 2.34
+                    amount: 2.34,
                 },
-                Transaction{ 
+                Transaction {
                     id: 2,
                     to: 1,
                     from: 2,
-                    amount: 10.00
-                });
+                    amount: 10.00,
+                },
+            ];
 
             let result = transactions.calculate_total(3);
             assert!(result.is_none());
         }
 
-    mod block_tests {
-      use super::*;
+        mod block_tests {
+            use super::*;
 
-        #[test]
-        fn test_calculate_total_for_existing_id(){
-            let block = Block {
+            #[test]
+            fn test_calculate_total_for_existing_id() {
+                let block = Block {
                     id: 0,
-                    transactions: vec!(
-                    Transaction{ 
-                        id: 1,
-                        to: 1,
-                        from: 2,
-                        amount: 2.34
-                    },
-                    Transaction{ 
-                        id: 2,
-                        to: 1,
-                        from: 2,
-                        amount: 10.00
-                    })};
+                    transactions: vec![
+                        Transaction {
+                            id: 1,
+                            to: 1,
+                            from: 2,
+                            amount: 2.34,
+                        },
+                        Transaction {
+                            id: 2,
+                            to: 1,
+                            from: 2,
+                            amount: 10.00,
+                        },
+                    ],
+                };
 
-            let result = block.calculate_total(1);
-            assert!(result.is_some());
-            assert_eq!(result, Some(12.34));
+                let result = block.calculate_total(1);
+                assert!(result.is_some());
+                assert_eq!(result, Some(12.34));
 
-            let result = block.calculate_total(2);
-            assert!(result.is_some());
-            assert_eq!(result, Some(-12.34));
-        }
+                let result = block.calculate_total(2);
+                assert!(result.is_some());
+                assert_eq!(result, Some(-12.34));
+            }
 
-        #[test]
-        fn test_calculate_total_no_id_returns_none(){
-            let block = Block {
+            #[test]
+            fn test_calculate_total_no_id_returns_none() {
+                let block = Block {
                     id: 0,
-                    transactions: vec!(
-                    Transaction{ 
-                        id: 1,
-                        to: 1,
-                        from: 2,
-                        amount: 2.34
-                    },
-                    Transaction{ 
-                        id: 2,
-                        to: 1,
-                        from: 2,
-                        amount: 10.00
-                    })};
+                    transactions: vec![
+                        Transaction {
+                            id: 1,
+                            to: 1,
+                            from: 2,
+                            amount: 2.34,
+                        },
+                        Transaction {
+                            id: 2,
+                            to: 1,
+                            from: 2,
+                            amount: 10.00,
+                        },
+                    ],
+                };
 
-            let result = block.calculate_total(3);
-            assert!(result.is_none());
+                let result = block.calculate_total(3);
+                assert!(result.is_none());
+            }
         }
-    }
     }
 }
