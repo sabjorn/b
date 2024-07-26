@@ -2,6 +2,7 @@ pub type AccountId = i64;
 pub type TranscationId = i64;
 pub type BlockId = i64;
 type Transactions = Vec<Transaction>;
+type Blocks = Vec<Block>;
 
 pub struct Transaction {
     id: TranscationId,
@@ -21,40 +22,35 @@ trait TransactionTotal {
 
 impl TransactionTotal for Transactions {
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
-        let mut found = false;
-        let sum: f64 = self
-            .into_iter()
-            .filter(|t| {
-                if t.to == account || t.from == account {
-                    found = true;
-                    return true;
-                }
-
-                false
-            })
-            .map(|t| {
+        let sum: Option<f64> = self
+            .iter()
+            .filter_map(|t| {
                 if t.to == account {
-                    return t.amount;
+                    return Some(t.amount);
                 }
                 if t.from == account {
-                    return -t.amount;
+                    return Some(-t.amount);
                 }
-
-                0.0
+                None
             })
-            .sum();
-
-        if found {
-            return Some(sum);
-        }
-
-        None
+            .fold(None, |acc, amount| Some(acc.unwrap_or(0.0) + amount));
+        sum
     }
 }
 
 impl TransactionTotal for Block {
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         self.transactions.calculate_total(account)
+    }
+}
+
+impl TransactionTotal for Blocks {
+    fn calculate_total(&self, account: AccountId) -> Option<f64> {
+        let sum: Option<f64> = self
+            .iter()
+            .filter_map(|block| block.calculate_total(account))
+            .fold(None, |acc, amount| Some(acc.unwrap_or(0.0) + amount));
+        sum
     }
 }
 
@@ -165,6 +161,101 @@ mod tests {
                 };
 
                 let result = block.calculate_total(3);
+                assert!(result.is_none());
+            }
+        }
+
+        mod blocks_tests {
+            use super::*;
+
+            #[test]
+            fn test_calculate_total_for_existing_id() {
+                let blocks = vec![
+                    Block {
+                        id: 0,
+                        transactions: vec![
+                            Transaction {
+                                id: 1,
+                                to: 1,
+                                from: 2,
+                                amount: 2.34,
+                            },
+                            Transaction {
+                                id: 2,
+                                to: 1,
+                                from: 2,
+                                amount: 10.00,
+                            },
+                        ],
+                    },
+                    Block {
+                        id: 1,
+                        transactions: vec![
+                            Transaction {
+                                id: 3,
+                                to: 1,
+                                from: 2,
+                                amount: 200.00,
+                            },
+                            Transaction {
+                                id: 4,
+                                to: 1,
+                                from: 2,
+                                amount: 3000.00,
+                            },
+                        ],
+                    },
+                ];
+
+                let result = blocks.calculate_total(1);
+                assert!(result.is_some());
+                assert_eq!(result, Some(3212.34));
+
+                let result = blocks.calculate_total(2);
+                assert!(result.is_some());
+                assert_eq!(result, Some(-3212.34));
+            }
+
+            #[test]
+            fn test_calculate_total_no_id_returns_none() {
+                let blocks = vec![
+                    Block {
+                        id: 0,
+                        transactions: vec![
+                            Transaction {
+                                id: 1,
+                                to: 1,
+                                from: 2,
+                                amount: 2.34,
+                            },
+                            Transaction {
+                                id: 2,
+                                to: 1,
+                                from: 2,
+                                amount: 10.00,
+                            },
+                        ],
+                    },
+                    Block {
+                        id: 1,
+                        transactions: vec![
+                            Transaction {
+                                id: 3,
+                                to: 1,
+                                from: 2,
+                                amount: 200.00,
+                            },
+                            Transaction {
+                                id: 4,
+                                to: 1,
+                                from: 2,
+                                amount: 3000.00,
+                            },
+                        ],
+                    },
+                ];
+
+                let result = blocks.calculate_total(3);
                 assert!(result.is_none());
             }
         }
