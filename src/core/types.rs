@@ -1,9 +1,10 @@
 pub type AccountId = i64;
 pub type TranscationId = i64;
 pub type BlockId = i64;
-type Transactions = Vec<Transaction>;
-type Blocks = Vec<Block>;
+pub type Transactions = Vec<Transaction>;
+pub type Blocks = Vec<Block>;
 
+#[derive(Clone)]
 pub struct Transaction {
     id: TranscationId,
     to: AccountId,
@@ -12,8 +13,8 @@ pub struct Transaction {
 }
 
 pub struct Block {
-    id: BlockId,
-    transactions: Transactions,
+    pub id: BlockId,
+    pub transactions: Transactions,
 }
 
 trait TransactionTotal {

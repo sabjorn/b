@@ -1,9 +1,12 @@
 use crate::client::ClientCommands;
+use crate::core::types::{Block, BlockId, Blocks, Transaction, Transactions};
 use bincode::{deserialize, serialize};
 use log::{error, info};
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
+use std::time::Duration;
 
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0; 512];
@@ -60,8 +63,42 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
         panic!("Program will exit due to error.");
     });
     info!("Server listening on port {}", port);
-    // mutex<vec> blocks
-    // signal
+
+    let blocks: Arc<RwLock<Blocks>> = Arc::new(RwLock::new(Vec::new()));
+    let transaction_queue: Arc<Mutex<Transactions>> = Arc::new(Mutex::new(Vec::new()));
+    let condvar = Arc::new((Mutex::new(false), Condvar::new()));
+
+    let blocks_clone = Arc::clone(&blocks);
+    let transcation_queue_clone = Arc::clone(&transaction_queue);
+    let condvar_clone = Arc::clone(&condvar);
+
+    let interval = Duration::from_secs(10);
+    thread::spawn(move || {
+        let mut block_id: BlockId = 0;
+
+        let mut blocks: Blocks = Vec::new();
+        loop {
+            info!("Periodic thread running.");
+            let mut transcations = transcation_queue_clone.lock().unwrap();
+
+            let block = Block {
+                id: block_id,
+                transactions: transcations.clone(),
+            };
+            transcations.clear();
+            block_id += 1;
+
+            let mut blocks = blocks_clone.write().unwrap();
+            blocks.push(block);
+
+            let (lock, cvar) = &*condvar_clone;
+            let mut notified = lock.lock().unwrap();
+            *notified = true;
+            cvar.notify_all();
+
+            thread::sleep(interval);
+        }
+    });
 
     for stream in listener.incoming() {
         match stream {
