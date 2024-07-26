@@ -1,14 +1,18 @@
-mod core;
 mod commands;
+mod core;
 
-use commands::{create_account, transfer, check_balance};
-use core::types::AccountId;
 use clap::{Parser, Subcommand};
+use commands::{check_balance, create_account, transfer};
+use core::types::AccountId;
 use log::info;
 
-
 #[derive(Parser)]
-#[clap(name = "my_app", version = "1.0", author = "Your Name", about = "A CLI application example")]
+#[clap(
+    name = "my_app",
+    version = "1.0",
+    author = "Your Name",
+    about = "A CLI application example"
+)]
 struct Cli {
     #[clap(short, long, default_value = "9999", global = true)]
     port: u16,
@@ -34,7 +38,7 @@ enum Commands {
     },
     Balance {
         account: AccountId,
-    }, 
+    },
 }
 
 fn setup_logger(verbose: bool) -> Result<(), fern::InitError> {
@@ -61,7 +65,7 @@ fn setup_logger(verbose: bool) -> Result<(), fern::InitError> {
 
 fn main() {
     let cli = Cli::parse();
-    
+
     setup_logger(cli.verbose).expect("Failed to initialize logger");
 
     match &cli.command {
@@ -69,7 +73,10 @@ fn main() {
             info!("Starting the node server on port {}...", cli.port);
             start_node(cli.port);
         }
-        Commands::CreateAccount { account, starting_balance } => {
+        Commands::CreateAccount {
+            account,
+            starting_balance,
+        } => {
             info!(
                 "Creating a new account with ID {} and starting balance {} on port {}...",
                 account, starting_balance, cli.port
@@ -87,7 +94,7 @@ fn main() {
             );
             transfer(*from_account, *to_account, *amount, cli.port);
         }
-        Commands::Balance {account} => {
+        Commands::Balance { account } => {
             info!("Checking balance on port {}...", cli.port);
             check_balance(cli.port);
         }
@@ -98,5 +105,3 @@ fn start_node(port: u16) {
     info!("Server is running on port {}. Press Ctrl-C to stop.", port);
     info!("Server stopped.");
 }
-
-
