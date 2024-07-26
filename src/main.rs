@@ -66,11 +66,11 @@ fn main() {
     match cli.command {
         Commands::StartNode => {
             info!("Starting the node server on port {}...", cli.port);
-            start_node(cli.port);
+            let _ = start_node(cli.port);
         }
         Commands::Client(client_command) => {
             info!("Connecting to node on port {}...", cli.port);
-            run_client(client_command, cli.port);
+            let _ = run_client(client_command, cli.port);
         }
     }
 }
