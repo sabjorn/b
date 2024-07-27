@@ -9,10 +9,10 @@ use server::start_node;
 
 #[derive(Parser)]
 #[clap(
-    name = "my_app",
-    version = "1.0",
-    author = "Your Name",
-    about = "A CLI application example"
+    name = "b",
+    version = "0.1",
+    author = "Steven A. Bjornson",
+    about = "A blockchain emulator"
 )]
 struct Cli {
     #[clap(short, long, default_value = "9999", global = true)]
@@ -20,6 +20,9 @@ struct Cli {
 
     #[clap(short, long, action = clap::ArgAction::SetTrue)]
     verbose: bool,
+
+    #[clap(short, long, default_value = "10")]
+    interval: u64,
 
     #[clap(subcommand)]
     command: Commands,
@@ -62,7 +65,7 @@ fn main() {
     match cli.command {
         Commands::StartNode => {
             info!("Starting the node server on port {}...", cli.port);
-            let _ = start_node(cli.port);
+            let _ = start_node(cli.port, cli.interval);
         }
         Commands::Client(client_command) => {
             info!("Connecting to node on port {}...", cli.port);

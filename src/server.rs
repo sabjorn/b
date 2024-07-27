@@ -211,13 +211,12 @@ fn handle_client(
     }
 }
 
-pub fn start_node(port: u16) -> std::io::Result<()> {
+pub fn start_node(port: u16, interval: u64) -> std::io::Result<()> {
     let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
     let listener = TcpListener::bind(address).unwrap_or_else(|e| {
         error!("Error creating a TcpListener for port {} -- {}", port, e);
         panic!("Program will exit due to error.");
     });
-    info!("b server listening on port {}", port);
 
     let blocks: Arc<RwLock<Blocks>> = Arc::new(RwLock::new(Vec::new()));
     let transaction_queue: Arc<Mutex<Transactions>> = Arc::new(Mutex::new(Vec::new()));
@@ -227,7 +226,11 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
     let transcation_queue_clone = Arc::clone(&transaction_queue);
     let condvar_clone = Arc::clone(&condvar);
 
-    let interval = Duration::from_secs(10);
+    info!(
+        "Starting block processor at time interval: {} seconds",
+        interval
+    );
+    let interval = Duration::from_secs(interval);
     thread::spawn(move || {
         let mut block_id: BlockId = 0;
         loop {
@@ -257,6 +260,7 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
         }
     });
 
+    info!("b server listening on port {}", port);
     for stream in listener.incoming() {
         let blocks_clone = Arc::clone(&blocks);
         let transcation_queue_clone = Arc::clone(&transaction_queue);
