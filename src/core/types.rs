@@ -4,19 +4,6 @@ pub type BlockId = i64;
 pub type Transactions = Vec<Transaction>;
 pub type Blocks = Vec<Block>;
 
-#[derive(Clone)]
-pub struct Transaction {
-    pub id: TransactionId,
-    pub to: AccountId,
-    pub from: AccountId,
-    pub amount: f64,
-}
-
-pub struct Block {
-    pub id: BlockId,
-    pub transactions: Transactions,
-}
-
 pub trait TransactionInfo {
     fn contains_account(&self, account: AccountId) -> bool;
     fn calculate_total(&self, account: AccountId) -> Option<f64>;
@@ -24,6 +11,14 @@ pub trait TransactionInfo {
 
 pub trait BlockInfo {
     fn contains_transaction(&self, block: BlockId, transaction: TransactionId) -> bool;
+}
+
+#[derive(Clone)]
+pub struct Transaction {
+    pub id: TransactionId,
+    pub to: AccountId,
+    pub from: AccountId,
+    pub amount: f64,
 }
 
 impl TransactionInfo for Transactions {
@@ -46,6 +41,11 @@ impl TransactionInfo for Transactions {
             .fold(None, |acc, amount| Some(acc.unwrap_or(0.0) + amount));
         sum
     }
+}
+
+pub struct Block {
+    pub id: BlockId,
+    pub transactions: Transactions,
 }
 
 impl TransactionInfo for Block {
