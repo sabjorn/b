@@ -24,36 +24,73 @@ pub enum ServerResponse {
     },
 }
 
-fn check_account_exists(
-    account: AccountId,
-    shared_blocks: &Arc<RwLock<Blocks>>,
-    shared_transactions: &Arc<Mutex<Transactions>>,
-) -> bool {
-    shared_blocks.read().unwrap().contains_account(account)
-        || shared_transactions
-            .lock()
-            .unwrap()
-            .contains_account(account)
-}
+pub fn start_node(port: u16, interval: u64) -> std::io::Result<()> {
+    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let listener = TcpListener::bind(address).unwrap_or_else(|e| {
+        error!("Error creating a TcpListener for port {} -- {}", port, e);
+        panic!("Program will exit due to error.");
+    });
 
-fn wait_on_block_id(
-    transaction_id: TransactionId,
-    shared_blocks: &Arc<RwLock<Blocks>>,
-    shared_condvar: &Arc<(Mutex<BlockId>, Condvar)>,
-) -> BlockId {
-    let mut block_id: BlockId = 0;
-    let mut block_contains_transaction = false;
-    while !block_contains_transaction {
-        let (lock, cvar) = shared_condvar.as_ref();
-        let cond_block_id = lock.lock().unwrap();
-        let cond_block_id = cvar.wait(cond_block_id).unwrap();
-        block_id = *cond_block_id;
-        block_contains_transaction = shared_blocks
-            .read()
-            .unwrap()
-            .contains_transaction(block_id, transaction_id);
+    let blocks: Arc<RwLock<Blocks>> = Arc::new(RwLock::new(Vec::new()));
+    let transaction_queue: Arc<Mutex<Transactions>> = Arc::new(Mutex::new(Vec::new()));
+    let condvar = Arc::new((Mutex::new(0), Condvar::new()));
+
+    let blocks_clone = Arc::clone(&blocks);
+    let transcation_queue_clone = Arc::clone(&transaction_queue);
+    let condvar_clone = Arc::clone(&condvar);
+
+    info!(
+        "Starting block processor at time interval: {} seconds",
+        interval
+    );
+    let interval = Duration::from_secs(interval);
+    thread::spawn(move || {
+        let mut block_id: BlockId = 0;
+        loop {
+            thread::sleep(interval);
+            info!("Publishing block.");
+            {
+                let mut transactions = transcation_queue_clone.lock().unwrap();
+
+                let block = Block {
+                    id: block_id,
+                    transactions: transactions.clone(),
+                };
+                transactions.clear();
+
+                let mut blocks = blocks_clone.write().unwrap();
+                blocks.push(block);
+
+                let (lock, cvar) = &*condvar_clone;
+                let mut notified = lock.lock().unwrap();
+                *notified = block_id;
+
+                cvar.notify_all();
+
+                info!("Block published: {:?}", &blocks[block_id as usize]);
+            }
+            block_id += 1;
+        }
+    });
+
+    info!("b server listening on port {}", port);
+    for stream in listener.incoming() {
+        let blocks_clone = Arc::clone(&blocks);
+        let transcation_queue_clone = Arc::clone(&transaction_queue);
+        let condvar_clone = Arc::clone(&condvar);
+        match stream {
+            Ok(stream) => {
+                thread::spawn(|| {
+                    handle_client(stream, blocks_clone, transcation_queue_clone, condvar_clone);
+                });
+            }
+            Err(e) => {
+                error!("Failed to accept connection: {}", e);
+            }
+        }
     }
-    block_id
+
+    Ok(())
 }
 
 fn handle_client(
@@ -211,71 +248,34 @@ fn handle_client(
     }
 }
 
-pub fn start_node(port: u16, interval: u64) -> std::io::Result<()> {
-    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let listener = TcpListener::bind(address).unwrap_or_else(|e| {
-        error!("Error creating a TcpListener for port {} -- {}", port, e);
-        panic!("Program will exit due to error.");
-    });
+fn check_account_exists(
+    account: AccountId,
+    shared_blocks: &Arc<RwLock<Blocks>>,
+    shared_transactions: &Arc<Mutex<Transactions>>,
+) -> bool {
+    shared_blocks.read().unwrap().contains_account(account)
+        || shared_transactions
+            .lock()
+            .unwrap()
+            .contains_account(account)
+}
 
-    let blocks: Arc<RwLock<Blocks>> = Arc::new(RwLock::new(Vec::new()));
-    let transaction_queue: Arc<Mutex<Transactions>> = Arc::new(Mutex::new(Vec::new()));
-    let condvar = Arc::new((Mutex::new(0), Condvar::new()));
-
-    let blocks_clone = Arc::clone(&blocks);
-    let transcation_queue_clone = Arc::clone(&transaction_queue);
-    let condvar_clone = Arc::clone(&condvar);
-
-    info!(
-        "Starting block processor at time interval: {} seconds",
-        interval
-    );
-    let interval = Duration::from_secs(interval);
-    thread::spawn(move || {
-        let mut block_id: BlockId = 0;
-        loop {
-            thread::sleep(interval);
-            info!("Publishing block.");
-            {
-                let mut transactions = transcation_queue_clone.lock().unwrap();
-
-                let block = Block {
-                    id: block_id,
-                    transactions: transactions.clone(),
-                };
-                transactions.clear();
-
-                let mut blocks = blocks_clone.write().unwrap();
-                blocks.push(block);
-
-                let (lock, cvar) = &*condvar_clone;
-                let mut notified = lock.lock().unwrap();
-                *notified = block_id;
-
-                cvar.notify_all();
-
-                info!("Block published: {:?}", &blocks[block_id as usize]);
-            }
-            block_id += 1;
-        }
-    });
-
-    info!("b server listening on port {}", port);
-    for stream in listener.incoming() {
-        let blocks_clone = Arc::clone(&blocks);
-        let transcation_queue_clone = Arc::clone(&transaction_queue);
-        let condvar_clone = Arc::clone(&condvar);
-        match stream {
-            Ok(stream) => {
-                thread::spawn(|| {
-                    handle_client(stream, blocks_clone, transcation_queue_clone, condvar_clone);
-                });
-            }
-            Err(e) => {
-                error!("Failed to accept connection: {}", e);
-            }
-        }
+fn wait_on_block_id(
+    transaction_id: TransactionId,
+    shared_blocks: &Arc<RwLock<Blocks>>,
+    shared_condvar: &Arc<(Mutex<BlockId>, Condvar)>,
+) -> BlockId {
+    let mut block_id: BlockId = 0;
+    let mut block_contains_transaction = false;
+    while !block_contains_transaction {
+        let (lock, cvar) = shared_condvar.as_ref();
+        let cond_block_id = lock.lock().unwrap();
+        let cond_block_id = cvar.wait(cond_block_id).unwrap();
+        block_id = *cond_block_id;
+        block_contains_transaction = shared_blocks
+            .read()
+            .unwrap()
+            .contains_transaction(block_id, transaction_id);
     }
-
-    Ok(())
+    block_id
 }
