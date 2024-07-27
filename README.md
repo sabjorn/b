@@ -21,10 +21,6 @@ All commands can be pre-empted with the following flags:
       ```sh
       b start-node
       ```
-    - **Example**:
-      ```sh
-      b start-node
-      ```
 
 2. **create-account**
     - Creates a new account with a specified ID and starting balance.
@@ -52,9 +48,9 @@ All commands can be pre-empted with the following flags:
     - Checks the balance of an account.
     - **Usage**: 
       ```sh
-      b balance
+      b balance <account-id>
       ```
     - **Example**:
       ```sh
-      b balance
+      b balance 123456
       ```
