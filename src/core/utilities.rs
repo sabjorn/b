@@ -1,7 +1,8 @@
+use super::types::Id;
 use sha2::{Digest, Sha256};
 use std::time::Duration;
 
-pub fn generate_id(transaction_id: u64, account_id: u64, amount: f64, duration: Duration) -> u64 {
+pub fn generate_id(transaction_id: Id, account_id: Id, amount: f64, duration: Duration) -> Id {
     let current_time = duration.as_secs();
 
     let mut hasher = Sha256::new();

@@ -1,5 +1,8 @@
 use crate::client::ClientCommands;
-use crate::core::types::{Block, BlockId, Blocks, Transaction, Transactions, TransactionInfo, BlockInfo, AccountId};
+use crate::core::constants::MASTER_ID;
+use crate::core::types::{
+    AccountId, Block, BlockId, BlockInfo, Blocks, Transaction, TransactionInfo, Transactions,
+};
 use bincode::{deserialize, serialize};
 use log::{error, info};
 use std::io::{Read, Write};
@@ -8,13 +11,16 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
 
-
 fn check_account_exists(
     account: AccountId,
     shared_blocks: &Arc<RwLock<Blocks>>,
     shared_transactions: &Arc<Mutex<Transactions>>,
 ) -> bool {
-    shared_blocks.read().unwrap().contains_account(account) && shared_transactions.lock().unwrap().contains_account(account)
+    shared_blocks.read().unwrap().contains_account(account)
+        && shared_transactions
+            .lock()
+            .unwrap()
+            .contains_account(account)
 }
 
 fn handle_client(
@@ -52,7 +58,9 @@ fn handle_client(
         let return_value: Result<i64, String> = match command {
             ClientCommands::Balance { account } => {
                 info!("account_id: {} recieved", account);
-                shared_blocks.read().unwrap()
+                shared_blocks
+                    .read()
+                    .unwrap()
                     .calculate_total(account)
                     .map(|value| value as i64)
                     .ok_or_else(|| format!("could not find balance for account: {}", account))
@@ -62,21 +70,17 @@ fn handle_client(
                 starting_balance,
             } => {
                 info!("Received CreateAccount command");
+                // check if account is MASTER_ID
+
                 // TODO: check if account already exists, if so -- return error
                 //if check_account_exists(account, &shared_blocks, &shared_transactions) {
                 //    Err(format!( "Account {} already exists", account))
                 //}
-                
-                // TODO: this needs to be set automatically
-                let transaction_id = 123; 
-                {
-                    let transaction = Transaction {
-                        id: transaction_id,
-                        to: account,
-                        from: 9999,
-                        amount: starting_balance,
-                    };
 
+                let transaction = Transaction::new(account, MASTER_ID, starting_balance);
+                let transaction_id = transaction.id;
+
+                {
                     let mut transactions = shared_transactions.lock().unwrap();
                     transactions.push(transaction);
                 }
@@ -84,11 +88,14 @@ fn handle_client(
                 let mut block_contains_transaction = false;
                 while !block_contains_transaction {
                     let (lock, cvar) = &*shared_condvar;
-                    let mut block_id = lock.lock().unwrap();
+                    let block_id = lock.lock().unwrap();
                     let block_id = cvar.wait(block_id).unwrap();
-                    block_contains_transaction = shared_blocks.read().unwrap().contains_transaction(*block_id, transaction_id);
+                    block_contains_transaction = shared_blocks
+                        .read()
+                        .unwrap()
+                        .contains_transaction(*block_id, transaction_id);
                 }
-                Ok(account)
+                Ok(account as i64)
             }
             ClientCommands::Transfer {
                 from_account,
@@ -96,6 +103,7 @@ fn handle_client(
                 amount,
             } => {
                 info!("Received Transfer command");
+                // check if from/to account is MASTER_ID
 
                 // if !check_account_exists(from_account, &shared_blocks, &shared_transactions) &&
                 // !check_account_exists(to_account, &shared_blocks, &shared_transactions)
@@ -118,24 +126,23 @@ fn handle_client(
                 match sum {
                     Some(s) => {
                         if s <= amount {
-                            let transaction_id = 111;
+                            let transaction = Transaction::new(to_account, from_account, amount);
+                            let transaction_id = transaction.id;
                             {
                                 let mut transactions = shared_transactions.lock().unwrap();
-                                transactions.push(Transaction {
-                                    id: transaction_id,
-                                    to: to_account,
-                                    from: from_account,
-                                    amount: amount,
-                                });
+                                transactions.push(transaction)
                             }
                             let mut block_contains_transaction = false;
                             while !block_contains_transaction {
                                 let (lock, cvar) = &*shared_condvar;
                                 let mut block_id = lock.lock().unwrap();
                                 let block_id = cvar.wait(block_id).unwrap();
-                                block_contains_transaction = shared_blocks.read().unwrap().contains_transaction(*block_id, transaction_id);
+                                block_contains_transaction = shared_blocks
+                                    .read()
+                                    .unwrap()
+                                    .contains_transaction(*block_id, transaction_id);
                             }
-                            Ok(from_account)
+                            Ok(from_account as i64)
                         } else {
                             Err(format!(
                                 "Not enough in account {} to transfer {}",

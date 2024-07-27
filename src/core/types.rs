@@ -1,6 +1,11 @@
-pub type AccountId = i64;
-pub type TransactionId = i64;
-pub type BlockId = i64;
+use super::utilities::generate_id;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
+
+pub type Id = u64;
+pub type AccountId = Id;
+pub type TransactionId = Id;
+pub type BlockId = Id;
 pub type Transactions = Vec<Transaction>;
 pub type Blocks = Vec<Block>;
 
@@ -16,9 +21,23 @@ pub trait BlockInfo {
 #[derive(Clone)]
 pub struct Transaction {
     pub id: TransactionId,
-    pub to: AccountId,
-    pub from: AccountId,
-    pub amount: f64,
+    to: AccountId,
+    from: AccountId,
+    amount: f64,
+}
+
+impl Transaction {
+    pub fn new(to: AccountId, from: AccountId, amount: f64) -> Transaction {
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let id = generate_id(to, from, amount, current_time);
+
+        Transaction {
+            id,
+            to,
+            from,
+            amount,
+        }
+    }
 }
 
 impl TransactionInfo for Transactions {
