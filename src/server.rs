@@ -1,8 +1,7 @@
 use crate::client::ClientCommands;
 use crate::core::constants::MASTER_ID;
-use crate::core::types::{
-    AccountId, Block, BlockId, BlockInfo, Blocks, Transaction, TransactionInfo, Transactions,
-};
+use crate::core::traits::{BlockInfo, TransactionInfo};
+use crate::core::types::{AccountId, Block, BlockId, Blocks, Transaction, Transactions};
 use bincode::{deserialize, serialize};
 use log::{error, info};
 use std::io::{Read, Write};
@@ -121,7 +120,7 @@ fn handle_client(
                         let blocks = shared_blocks.read().unwrap();
                         let blocks_total = blocks.calculate_total(from_account);
 
-                        // total_balance Option type is a proxy for accounts existing 
+                        // total_balance Option type is a proxy for accounts existing
                         total_balance = match (transactions_total, blocks_total) {
                             (Some(val1), Some(val2)) => Some(val1 + val2),
                             (Some(val), None) | (None, Some(val)) => Some(val),

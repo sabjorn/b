@@ -1,3 +1,4 @@
+use super::traits::{BlockInfo, TransactionInfo};
 use super::utilities::generate_id;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
@@ -8,15 +9,6 @@ pub type TransactionId = Id;
 pub type BlockId = Id;
 pub type Transactions = Vec<Transaction>;
 pub type Blocks = Vec<Block>;
-
-pub trait TransactionInfo {
-    fn contains_account(&self, account: AccountId) -> bool;
-    fn calculate_total(&self, account: AccountId) -> Option<f64>;
-}
-
-pub trait BlockInfo {
-    fn contains_transaction(&self, block: BlockId, transaction: TransactionId) -> bool;
-}
 
 #[derive(Clone, Debug)]
 pub struct Transaction {
