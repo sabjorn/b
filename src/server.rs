@@ -1,6 +1,5 @@
 use crate::client::ClientCommands;
-use crate::core::types::TransactionInfo;
-use crate::core::types::{Block, BlockId, Blocks, Transaction, Transactions};
+use crate::core::types::{Block, BlockId, Blocks, Transaction, Transactions, TransactionInfo, BlockInfo, AccountId};
 use bincode::{deserialize, serialize};
 use log::{error, info};
 use std::io::{Read, Write};
@@ -9,10 +8,19 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
 
+
+fn check_account_exists(
+    account: AccountId,
+    shared_blocks: &Arc<RwLock<Blocks>>,
+    shared_transactions: &Arc<Mutex<Transactions>>,
+) -> bool {
+    shared_blocks.read().unwrap().contains_account(account) && shared_transactions.lock().unwrap().contains_account(account)
+}
+
 fn handle_client(
     mut stream: TcpStream,
     shared_blocks: Arc<RwLock<Blocks>>,
-    shared_transcations: Arc<Mutex<Transactions>>,
+    shared_transactions: Arc<Mutex<Transactions>>,
     shared_condvar: Arc<(Mutex<BlockId>, Condvar)>,
 ) {
     let mut buffer = [0; 512];
@@ -44,18 +52,23 @@ fn handle_client(
         let return_value: Result<i64, String> = match command {
             ClientCommands::Balance { account } => {
                 info!("account_id: {} recieved", account);
-                let blocks = shared_blocks.read().unwrap();
-                match (*blocks).calculate_total(account) {
-                    Some(value) => Ok(value as i64),
-                    None => Err(format!("could not find balance for account: {}", account)),
-                }
+                shared_blocks.read().unwrap()
+                    .calculate_total(account)
+                    .map(|value| value as i64)
+                    .ok_or_else(|| format!("could not find balance for account: {}", account))
             }
             ClientCommands::CreateAccount {
                 account,
                 starting_balance,
             } => {
                 info!("Received CreateAccount command");
-                let transaction_id = 123; // generate automatically
+                // TODO: check if account already exists, if so -- return error
+                //if check_account_exists(account, &shared_blocks, &shared_transactions) {
+                //    Err(format!( "Account {} already exists", account))
+                //}
+                
+                // TODO: this needs to be set automatically
+                let transaction_id = 123; 
                 {
                     let transaction = Transaction {
                         id: transaction_id,
@@ -64,7 +77,7 @@ fn handle_client(
                         amount: starting_balance,
                     };
 
-                    let mut transactions = shared_transcations.lock().unwrap();
+                    let mut transactions = shared_transactions.lock().unwrap();
                     transactions.push(transaction);
                 }
 
@@ -72,8 +85,8 @@ fn handle_client(
                 while !block_contains_transaction {
                     let (lock, cvar) = &*shared_condvar;
                     let mut block_id = lock.lock().unwrap();
-                    let block_id = cvar.wait(block_id).unwrap(); // we only care about the signal
-                    block_contains_transaction = true;
+                    let block_id = cvar.wait(block_id).unwrap();
+                    block_contains_transaction = shared_blocks.read().unwrap().contains_transaction(*block_id, transaction_id);
                 }
                 Ok(account)
             }
@@ -84,9 +97,12 @@ fn handle_client(
             } => {
                 info!("Received Transfer command");
 
+                // if !check_account_exists(from_account, &shared_blocks, &shared_transactions) &&
+                // !check_account_exists(to_account, &shared_blocks, &shared_transactions)
+
                 let mut sum: Option<f64> = None;
                 {
-                    let transactions = shared_transcations.lock().unwrap();
+                    let transactions = shared_transactions.lock().unwrap();
                     let transactions_total = transactions.calculate_total(from_account);
 
                     let blocks = shared_blocks.read().unwrap();
@@ -102,10 +118,11 @@ fn handle_client(
                 match sum {
                     Some(s) => {
                         if s <= amount {
+                            let transaction_id = 111;
                             {
-                                let mut transactions = shared_transcations.lock().unwrap();
+                                let mut transactions = shared_transactions.lock().unwrap();
                                 transactions.push(Transaction {
-                                    id: 111,
+                                    id: transaction_id,
                                     to: to_account,
                                     from: from_account,
                                     amount: amount,
@@ -115,8 +132,8 @@ fn handle_client(
                             while !block_contains_transaction {
                                 let (lock, cvar) = &*shared_condvar;
                                 let mut block_id = lock.lock().unwrap();
-                                let block_id = cvar.wait(block_id).unwrap(); // we only care about the signal
-                                block_contains_transaction = true;
+                                let block_id = cvar.wait(block_id).unwrap();
+                                block_contains_transaction = shared_blocks.read().unwrap().contains_transaction(*block_id, transaction_id);
                             }
                             Ok(from_account)
                         } else {
@@ -164,13 +181,13 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
             thread::sleep(interval);
             info!("Periodic thread running.");
             {
-                let mut transcations = transcation_queue_clone.lock().unwrap();
+                let mut transactions = transcation_queue_clone.lock().unwrap();
 
                 let block = Block {
                     id: block_id,
-                    transactions: transcations.clone(),
+                    transactions: transactions.clone(),
                 };
-                transcations.clear();
+                transactions.clear();
 
                 let mut blocks = blocks_clone.write().unwrap();
                 blocks.push(block);

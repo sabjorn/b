@@ -18,6 +18,7 @@ pub struct Block {
 }
 
 pub trait TransactionInfo {
+    fn contains_account(&self, account: AccountId) -> bool;
     fn calculate_total(&self, account: AccountId) -> Option<f64>;
 }
 
@@ -26,6 +27,10 @@ pub trait BlockInfo {
 }
 
 impl TransactionInfo for Transactions {
+    fn contains_account(&self, account: AccountId) -> bool{
+        false
+    }
+
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         let sum: Option<f64> = self
             .iter()
@@ -44,12 +49,19 @@ impl TransactionInfo for Transactions {
 }
 
 impl TransactionInfo for Block {
+    fn contains_account(&self, account: AccountId) -> bool{
+        false
+    }
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         self.transactions.calculate_total(account)
     }
 }
 
 impl TransactionInfo for Blocks {
+    fn contains_account(&self, account: AccountId) -> bool{
+        false
+    }
+
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         let sum: Option<f64> = self
             .iter()
