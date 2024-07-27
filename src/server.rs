@@ -179,8 +179,7 @@ fn handle_client(
             } => {
                 info!("Received Transfer command");
                 let transfer = || {
-                    let mut total_balance: Option<f64> = None;
-                    {
+                    let total_balance: Option<f64> = {
                         let transactions = shared_transactions.lock().unwrap();
                         let transactions_total = transactions.calculate_total(from_account);
 
@@ -188,12 +187,12 @@ fn handle_client(
                         let blocks_total = blocks.calculate_total(from_account);
 
                         // total_balance Option type is a proxy for accounts existing
-                        total_balance = match (transactions_total, blocks_total) {
+                        match (transactions_total, blocks_total) {
                             (Some(val1), Some(val2)) => Some(val1 + val2),
                             (Some(val), None) | (None, Some(val)) => Some(val),
                             (None, None) => None,
-                        };
-                    }
+                        }
+                    };
 
                     match total_balance {
                         Some(balance) => {
@@ -236,7 +235,6 @@ fn handle_client(
                     (false, false) => transfer(),
                 }
             }
-            _ => Err("Got command that is not implemented".to_string()),
         };
 
         let serialized_command = serialize(&return_value).expect("Failed to serialize command");
