@@ -1,4 +1,5 @@
 use crate::core::types::AccountId;
+use crate::server::ServerResponse;
 use bincode::{deserialize, serialize};
 use clap::Subcommand;
 use log::{debug, error, info};
@@ -37,10 +38,19 @@ pub fn run_client(command: ClientCommands, port: u16) {
 
     let mut buffer = [0; 512];
     let bytes_read = stream.read(&mut buffer).expect("no - fix me");
-    let return_value: Result<i64, String> = deserialize(&buffer[..bytes_read]).unwrap();
+    let return_value: Result<ServerResponse, String> = deserialize(&buffer[..bytes_read]).unwrap();
 
     match return_value {
-        Ok(val) => info!("recieved id: {}", val),
         Err(e) => error!("recieved error: {}", e),
+        Ok(val) => match val {
+            ServerResponse::Transferred {
+                block_id,
+                transaction_id,
+            } => info!(
+                "transfer success. \n\tblock_id: {}\n\ttransaction_id: {}",
+                block_id, transaction_id
+            ),
+            ServerResponse::Balance { balance } => info!("balance: {}", balance),
+        },
     }
 }
