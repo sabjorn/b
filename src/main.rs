@@ -15,12 +15,15 @@ use server::start_node;
     about = "A blockchain emulator"
 )]
 struct Cli {
+    /// Sets the port to use
     #[clap(short, long, default_value = "9999", global = true)]
     port: u16,
 
+    /// Sets verbose mode
     #[clap(short, long, action = clap::ArgAction::SetTrue)]
     verbose: bool,
 
+    /// Sets timer interval (in seconds) for start-node command
     #[clap(short, long, default_value = "10")]
     interval: u64,
 

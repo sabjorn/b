@@ -11,6 +11,7 @@ All commands can be pre-empted with the following flags:
 
 - `-p`, `--port`: The port number for connecting or listening (default: 9999).
 - `-v`: Verbose mode. Sets the log level to debug.
+- `-i`: The interval (in seconds) for the start-node command.
 
 ### Commands
 
