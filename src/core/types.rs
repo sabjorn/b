@@ -42,7 +42,7 @@ impl Transaction {
 
 impl TransactionInfo for Transactions {
     fn contains_account(&self, account: AccountId) -> bool {
-        false
+        self.iter().any(|t| t.to == account || t.from == account)
     }
 
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
@@ -70,7 +70,7 @@ pub struct Block {
 
 impl TransactionInfo for Block {
     fn contains_account(&self, account: AccountId) -> bool {
-        false
+        self.transactions.contains_account(account)
     }
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
         self.transactions.calculate_total(account)
@@ -79,7 +79,7 @@ impl TransactionInfo for Block {
 
 impl TransactionInfo for Blocks {
     fn contains_account(&self, account: AccountId) -> bool {
-        false
+        self.iter().any(|b| b.contains_account(account))
     }
 
     fn calculate_total(&self, account: AccountId) -> Option<f64> {

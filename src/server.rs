@@ -17,7 +17,7 @@ fn check_account_exists(
     shared_transactions: &Arc<Mutex<Transactions>>,
 ) -> bool {
     shared_blocks.read().unwrap().contains_account(account)
-        && shared_transactions
+        || shared_transactions
             .lock()
             .unwrap()
             .contains_account(account)
@@ -94,15 +94,16 @@ fn handle_client(
                     }
                     Ok(account as i64)
                 };
-                // TODO: check if account already exists, if so -- return error
-                //if check_account_exists(account, &shared_blocks, &shared_transactions) {
-                //    Err(format!( "Account {} already exists", account))
-                //}
-                match account == MASTER_ID {
-                    true => Err(format!(
+
+                match (
+                    account == MASTER_ID,
+                    check_account_exists(account, &shared_blocks, &shared_transactions),
+                ) {
+                    (true, _) => Err(format!(
                         "could not create account for account id: MASTER_ID"
                     )),
-                    false => create_account(),
+                    (_, true) => Err(format!("Account {} already exists", account)),
+                    (false, false) => create_account(),
                 }
             }
             ClientCommands::Transfer {
