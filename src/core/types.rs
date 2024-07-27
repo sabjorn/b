@@ -18,7 +18,7 @@ pub trait BlockInfo {
     fn contains_transaction(&self, block: BlockId, transaction: TransactionId) -> bool;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Transaction {
     pub id: TransactionId,
     to: AccountId,
@@ -62,6 +62,7 @@ impl TransactionInfo for Transactions {
     }
 }
 
+#[derive(Debug)]
 pub struct Block {
     pub id: BlockId,
     pub transactions: Transactions,

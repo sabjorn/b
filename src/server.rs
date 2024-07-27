@@ -171,7 +171,7 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
         error!("Error creating a TcpListener for port {} -- {}", port, e);
         panic!("Program will exit due to error.");
     });
-    info!("Server listening on port {}", port);
+    info!("b server listening on port {}", port);
 
     let blocks: Arc<RwLock<Blocks>> = Arc::new(RwLock::new(Vec::new()));
     let transaction_queue: Arc<Mutex<Transactions>> = Arc::new(Mutex::new(Vec::new()));
@@ -186,7 +186,7 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
         let mut block_id: BlockId = 0;
         loop {
             thread::sleep(interval);
-            info!("Periodic thread running.");
+            info!("Publishing block.");
             {
                 let mut transactions = transcation_queue_clone.lock().unwrap();
 
@@ -204,6 +204,8 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
                 *notified = block_id;
 
                 cvar.notify_all();
+
+                info!("Block published: {:?}", &blocks[block_id as usize]);
             }
             block_id += 1;
         }
