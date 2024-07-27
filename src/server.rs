@@ -58,44 +58,54 @@ fn handle_client(
         let return_value: Result<i64, String> = match command {
             ClientCommands::Balance { account } => {
                 info!("account_id: {} recieved", account);
-                shared_blocks
-                    .read()
-                    .unwrap()
-                    .calculate_total(account)
-                    .map(|value| value as i64)
-                    .ok_or_else(|| format!("could not find balance for account: {}", account))
+                match account == MASTER_ID {
+                    true => Err(format!("could not check balance for account id: MASTER_ID")),
+                    false => shared_blocks
+                        .read()
+                        .unwrap()
+                        .calculate_total(account)
+                        .map(|value| value as i64)
+                        .ok_or_else(|| format!("could not find balance for account: {}", account)),
+                }
             }
             ClientCommands::CreateAccount {
                 account,
                 starting_balance,
             } => {
                 info!("Received CreateAccount command");
-                // check if account is MASTER_ID
+                match account == MASTER_ID {
+                    true => Err(format!(
+                        "could not create account for account id: MASTER_ID"
+                    )),
+                    false => {
+                        // check if account is MASTER_ID
 
-                // TODO: check if account already exists, if so -- return error
-                //if check_account_exists(account, &shared_blocks, &shared_transactions) {
-                //    Err(format!( "Account {} already exists", account))
-                //}
+                        // TODO: check if account already exists, if so -- return error
+                        //if check_account_exists(account, &shared_blocks, &shared_transactions) {
+                        //    Err(format!( "Account {} already exists", account))
+                        //}
 
-                let transaction = Transaction::new(account, MASTER_ID, starting_balance);
-                let transaction_id = transaction.id;
+                        let transaction = Transaction::new(account, MASTER_ID, starting_balance);
+                        let transaction_id = transaction.id;
 
-                {
-                    let mut transactions = shared_transactions.lock().unwrap();
-                    transactions.push(transaction);
+                        {
+                            let mut transactions = shared_transactions.lock().unwrap();
+                            transactions.push(transaction);
+                        }
+
+                        let mut block_contains_transaction = false;
+                        while !block_contains_transaction {
+                            let (lock, cvar) = &*shared_condvar;
+                            let block_id = lock.lock().unwrap();
+                            let block_id = cvar.wait(block_id).unwrap();
+                            block_contains_transaction = shared_blocks
+                                .read()
+                                .unwrap()
+                                .contains_transaction(*block_id, transaction_id);
+                        }
+                        Ok(account as i64)
+                    }
                 }
-
-                let mut block_contains_transaction = false;
-                while !block_contains_transaction {
-                    let (lock, cvar) = &*shared_condvar;
-                    let block_id = lock.lock().unwrap();
-                    let block_id = cvar.wait(block_id).unwrap();
-                    block_contains_transaction = shared_blocks
-                        .read()
-                        .unwrap()
-                        .contains_transaction(*block_id, transaction_id);
-                }
-                Ok(account as i64)
             }
             ClientCommands::Transfer {
                 from_account,
@@ -103,54 +113,63 @@ fn handle_client(
                 amount,
             } => {
                 info!("Received Transfer command");
-                // check if from/to account is MASTER_ID
+                match (from_account == MASTER_ID, to_account == MASTER_ID) {
+                    (true, _) => Err(format!(
+                        "could not transfer because from account id was: MASTER_ID"
+                    )),
+                    (_, true) => Err(format!(
+                        "could not transfer because to account id was: MASTER_ID"
+                    )),
+                    (false, false) => {
+                        // if !check_account_exists(from_account, &shared_blocks, &shared_transactions) &&
+                        // !check_account_exists(to_account, &shared_blocks, &shared_transactions)
 
-                // if !check_account_exists(from_account, &shared_blocks, &shared_transactions) &&
-                // !check_account_exists(to_account, &shared_blocks, &shared_transactions)
+                        let mut sum: Option<f64> = None;
+                        {
+                            let transactions = shared_transactions.lock().unwrap();
+                            let transactions_total = transactions.calculate_total(from_account);
 
-                let mut sum: Option<f64> = None;
-                {
-                    let transactions = shared_transactions.lock().unwrap();
-                    let transactions_total = transactions.calculate_total(from_account);
+                            let blocks = shared_blocks.read().unwrap();
+                            let blocks_total = blocks.calculate_total(from_account);
 
-                    let blocks = shared_blocks.read().unwrap();
-                    let blocks_total = blocks.calculate_total(from_account);
+                            sum = match (transactions_total, blocks_total) {
+                                (Some(val1), Some(val2)) => Some(val1 + val2),
+                                (Some(val), None) | (None, Some(val)) => Some(val),
+                                (None, None) => None,
+                            };
+                        }
 
-                    sum = match (transactions_total, blocks_total) {
-                        (Some(val1), Some(val2)) => Some(val1 + val2),
-                        (Some(val), None) | (None, Some(val)) => Some(val),
-                        (None, None) => None,
-                    };
-                }
-
-                match sum {
-                    Some(s) => {
-                        if s <= amount {
-                            let transaction = Transaction::new(to_account, from_account, amount);
-                            let transaction_id = transaction.id;
-                            {
-                                let mut transactions = shared_transactions.lock().unwrap();
-                                transactions.push(transaction)
+                        match sum {
+                            Some(s) => {
+                                if s <= amount {
+                                    let transaction =
+                                        Transaction::new(to_account, from_account, amount);
+                                    let transaction_id = transaction.id;
+                                    {
+                                        let mut transactions = shared_transactions.lock().unwrap();
+                                        transactions.push(transaction)
+                                    }
+                                    let mut block_contains_transaction = false;
+                                    while !block_contains_transaction {
+                                        let (lock, cvar) = &*shared_condvar;
+                                        let mut block_id = lock.lock().unwrap();
+                                        let block_id = cvar.wait(block_id).unwrap();
+                                        block_contains_transaction = shared_blocks
+                                            .read()
+                                            .unwrap()
+                                            .contains_transaction(*block_id, transaction_id);
+                                    }
+                                    Ok(from_account as i64)
+                                } else {
+                                    Err(format!(
+                                        "Not enough in account {} to transfer {}",
+                                        from_account, amount
+                                    ))
+                                }
                             }
-                            let mut block_contains_transaction = false;
-                            while !block_contains_transaction {
-                                let (lock, cvar) = &*shared_condvar;
-                                let mut block_id = lock.lock().unwrap();
-                                let block_id = cvar.wait(block_id).unwrap();
-                                block_contains_transaction = shared_blocks
-                                    .read()
-                                    .unwrap()
-                                    .contains_transaction(*block_id, transaction_id);
-                            }
-                            Ok(from_account as i64)
-                        } else {
-                            Err(format!(
-                                "Not enough in account {} to transfer {}",
-                                from_account, amount
-                            ))
+                            None => Err(format!("Account not found: {}", from_account)),
                         }
                     }
-                    None => Err(format!("Account not found: {}", from_account)),
                 }
             }
             _ => Err("Got command that is not implemented".to_string()),
@@ -217,7 +236,6 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
         let condvar_clone = Arc::clone(&condvar);
         match stream {
             Ok(stream) => {
-                // clone signal
                 thread::spawn(|| {
                     handle_client(stream, blocks_clone, transcation_queue_clone, condvar_clone);
                 });
