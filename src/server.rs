@@ -67,7 +67,7 @@ fn handle_client(
                     let mut transactions = shared_transcations.lock().unwrap();
                     transactions.push(transaction);
                 }
-                
+
                 let mut block_contains_transaction = false;
                 while !block_contains_transaction {
                     let (lock, cvar) = &*shared_condvar;
@@ -75,7 +75,7 @@ fn handle_client(
                     let block_id = cvar.wait(block_id).unwrap(); // we only care about the signal
                     block_contains_transaction = true;
                 }
-                Ok(111)
+                Ok(account)
             }
             ClientCommands::Transfer {
                 from_account,
@@ -83,7 +83,51 @@ fn handle_client(
                 amount,
             } => {
                 info!("Received Transfer command");
-                Ok(123)
+
+                let mut sum: Option<f64> = None;
+                {
+                    let transactions = shared_transcations.lock().unwrap();
+                    let transactions_total = transactions.calculate_total(from_account);
+
+                    let blocks = shared_blocks.read().unwrap();
+                    let blocks_total = blocks.calculate_total(from_account);
+
+                    sum = match (transactions_total, blocks_total) {
+                        (Some(val1), Some(val2)) => Some(val1 + val2),
+                        (Some(val), None) | (None, Some(val)) => Some(val),
+                        (None, None) => None,
+                    };
+                }
+
+                match sum {
+                    Some(s) => {
+                        if s <= amount {
+                            {
+                                let mut transactions = shared_transcations.lock().unwrap();
+                                transactions.push(Transaction {
+                                    id: 111,
+                                    to: to_account,
+                                    from: from_account,
+                                    amount: amount,
+                                });
+                            }
+                            let mut block_contains_transaction = false;
+                            while !block_contains_transaction {
+                                let (lock, cvar) = &*shared_condvar;
+                                let mut block_id = lock.lock().unwrap();
+                                let block_id = cvar.wait(block_id).unwrap(); // we only care about the signal
+                                block_contains_transaction = true;
+                            }
+                            Ok(from_account)
+                        } else {
+                            Err(format!(
+                                "Not enough in account {} to transfer {}",
+                                from_account, amount
+                            ))
+                        }
+                    }
+                    None => Err(format!("Account not found: {}", from_account)),
+                }
             }
             _ => Err("Got command that is not implemented".to_string()),
         };
@@ -116,8 +160,6 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
     let interval = Duration::from_secs(10);
     thread::spawn(move || {
         let mut block_id: BlockId = 0;
-
-        let mut blocks: Blocks = Vec::new();
         loop {
             thread::sleep(interval);
             info!("Periodic thread running.");
