@@ -111,9 +111,8 @@ mod tests {
     mod transactions_tests {
         use super::*;
 
-        #[test]
-        fn test_calculate_total_for_existing_id() {
-            let transactions: Transactions = vec![
+        fn create_transcations() -> Transactions {
+            vec![
                 Transaction {
                     id: 1,
                     to: 1,
@@ -126,7 +125,12 @@ mod tests {
                     from: 2,
                     amount: 10.00,
                 },
-            ];
+            ]
+        }
+
+        #[test]
+        fn test_calculate_total_for_existing_id() {
+            let transactions = create_transcations();
 
             let result = transactions.calculate_total(1);
             assert!(result.is_some());
@@ -139,31 +143,31 @@ mod tests {
 
         #[test]
         fn test_calculate_total_no_id_returns_none() {
-            let transactions = vec![
-                Transaction {
-                    id: 1,
-                    to: 1,
-                    from: 2,
-                    amount: 2.34,
-                },
-                Transaction {
-                    id: 2,
-                    to: 1,
-                    from: 2,
-                    amount: 10.00,
-                },
-            ];
+            let transactions = create_transcations();
 
             let result = transactions.calculate_total(3);
             assert!(result.is_none());
         }
 
+        #[test]
+        fn test_contains_account() {
+            let transactions = create_transcations();
+
+            let result = transactions.contains_account(1);
+            assert!(result);
+
+            let result = transactions.contains_account(2);
+            assert!(result);
+
+            let result = transactions.contains_account(3);
+            assert!(!result);
+        }
+
         mod block_tests {
             use super::*;
 
-            #[test]
-            fn test_calculate_total_for_existing_id() {
-                let block = Block {
+            fn create_block() -> Block {
+                Block {
                     id: 0,
                     transactions: vec![
                         Transaction {
@@ -179,7 +183,12 @@ mod tests {
                             amount: 10.00,
                         },
                     ],
-                };
+                }
+            }
+
+            #[test]
+            fn test_calculate_total_for_existing_id() {
+                let block = create_block();
 
                 let result = block.calculate_total(1);
                 assert!(result.is_some());
@@ -192,35 +201,32 @@ mod tests {
 
             #[test]
             fn test_calculate_total_no_id_returns_none() {
-                let block = Block {
-                    id: 0,
-                    transactions: vec![
-                        Transaction {
-                            id: 1,
-                            to: 1,
-                            from: 2,
-                            amount: 2.34,
-                        },
-                        Transaction {
-                            id: 2,
-                            to: 1,
-                            from: 2,
-                            amount: 10.00,
-                        },
-                    ],
-                };
+                let block = create_block();
 
                 let result = block.calculate_total(3);
                 assert!(result.is_none());
+            }
+
+            #[test]
+            fn test_contains_account() {
+                let block = create_block();
+
+                let result = block.contains_account(1);
+                assert!(result);
+
+                let result = block.contains_account(2);
+                assert!(result);
+
+                let result = block.contains_account(3);
+                assert!(!result);
             }
         }
 
         mod blocks_tests {
             use super::*;
 
-            #[test]
-            fn test_calculate_total_for_existing_id() {
-                let blocks = vec![
+            fn create_blocks() -> Blocks {
+                vec![
                     Block {
                         id: 0,
                         transactions: vec![
@@ -255,7 +261,12 @@ mod tests {
                             },
                         ],
                     },
-                ];
+                ]
+            }
+
+            #[test]
+            fn test_calculate_total_for_existing_id() {
+                let blocks = create_blocks();
 
                 let result = blocks.calculate_total(1);
                 assert!(result.is_some());
@@ -268,42 +279,7 @@ mod tests {
 
             #[test]
             fn test_calculate_total_no_id_returns_none() {
-                let blocks = vec![
-                    Block {
-                        id: 0,
-                        transactions: vec![
-                            Transaction {
-                                id: 1,
-                                to: 1,
-                                from: 2,
-                                amount: 2.34,
-                            },
-                            Transaction {
-                                id: 2,
-                                to: 1,
-                                from: 2,
-                                amount: 10.00,
-                            },
-                        ],
-                    },
-                    Block {
-                        id: 1,
-                        transactions: vec![
-                            Transaction {
-                                id: 3,
-                                to: 1,
-                                from: 2,
-                                amount: 200.00,
-                            },
-                            Transaction {
-                                id: 4,
-                                to: 1,
-                                from: 2,
-                                amount: 3000.00,
-                            },
-                        ],
-                    },
-                ];
+                let blocks = create_blocks();
 
                 let result = blocks.calculate_total(3);
                 assert!(result.is_none());
@@ -311,43 +287,7 @@ mod tests {
 
             #[test]
             fn test_contains_transaction() {
-                let blocks = vec![
-                    Block {
-                        id: 0,
-                        transactions: vec![
-                            Transaction {
-                                id: 1,
-                                to: 1,
-                                from: 2,
-                                amount: 2.34,
-                            },
-                            Transaction {
-                                id: 2,
-                                to: 1,
-                                from: 2,
-                                amount: 10.00,
-                            },
-                        ],
-                    },
-                    Block {
-                        id: 1,
-                        transactions: vec![
-                            Transaction {
-                                id: 3,
-                                to: 1,
-                                from: 2,
-                                amount: 200.00,
-                            },
-                            Transaction {
-                                id: 4,
-                                to: 1,
-                                from: 2,
-                                amount: 3000.00,
-                            },
-                        ],
-                    },
-                ];
-
+                let blocks = create_blocks();
                 let result = blocks.contains_transaction(0, 1);
                 assert!(result);
 
@@ -361,6 +301,20 @@ mod tests {
 
                 let result = blocks.contains_transaction(0, 1);
                 assert_eq!(result, false);
+            }
+
+            #[test]
+            fn test_contains_account() {
+                let blocks = create_blocks();
+
+                let result = blocks.contains_account(1);
+                assert!(result);
+
+                let result = blocks.contains_account(2);
+                assert!(result);
+
+                let result = blocks.contains_account(3);
+                assert!(!result);
             }
         }
     }
