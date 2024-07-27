@@ -44,7 +44,7 @@ fn wait_on_block_id(
     let mut block_id: BlockId = 0;
     let mut block_contains_transaction = false;
     while !block_contains_transaction {
-        let (lock, cvar) = &**shared_condvar;
+        let (lock, cvar) = shared_condvar.as_ref();
         let cond_block_id = lock.lock().unwrap();
         let cond_block_id = cvar.wait(cond_block_id).unwrap();
         block_id = *cond_block_id;
