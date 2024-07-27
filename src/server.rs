@@ -1,5 +1,5 @@
-use crate::core::types::TranscationInfo;
 use crate::client::ClientCommands;
+use crate::core::types::TranscationInfo;
 use crate::core::types::{Block, BlockId, Blocks, Transaction, Transactions};
 use bincode::{deserialize, serialize};
 use log::{error, info};
@@ -9,7 +9,12 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
 
-fn handle_client(mut stream: TcpStream, shared_blocks: Arc<RwLock<Blocks>>) {
+fn handle_client(
+    mut stream: TcpStream,
+    shared_blocks: Arc<RwLock<Blocks>>,
+    shared_transcations: Arc<Mutex<Transactions>>,
+    shared_condvar: Arc<(Mutex<BlockId>, Condvar)>,
+) {
     let mut buffer = [0; 512];
     loop {
         let bytes_read = stream
@@ -42,8 +47,35 @@ fn handle_client(mut stream: TcpStream, shared_blocks: Arc<RwLock<Blocks>>) {
                 let blocks = shared_blocks.read().unwrap();
                 match (*blocks).calculate_total(account) {
                     Some(value) => Ok(value as i64),
-                    None => Err(format!("could not find balance for account: {}", account))
+                    None => Err(format!("could not find balance for account: {}", account)),
                 }
+            }
+            ClientCommands::CreateAccount {
+                account,
+                starting_balance,
+            } => {
+                info!("Received CreateAccount command");
+                let transaction_id = 123; // generate automatically
+                {
+                    let transaction = Transaction {
+                        id: transaction_id,
+                        to: account,
+                        from: 9999,
+                        amount: starting_balance,
+                    };
+
+                    let mut transactions = shared_transcations.lock().unwrap();
+                    transactions.push(transaction);
+                }
+                
+                let mut block_contains_transaction = false;
+                while !block_contains_transaction {
+                    let (lock, cvar) = &*shared_condvar;
+                    let mut block_id = lock.lock().unwrap();
+                    let block_id = cvar.wait(block_id).unwrap(); // we only care about the signal
+                    block_contains_transaction = true;
+                }
+                Ok(111)
             }
             ClientCommands::Transfer {
                 from_account,
@@ -75,7 +107,7 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
 
     let blocks: Arc<RwLock<Blocks>> = Arc::new(RwLock::new(Vec::new()));
     let transaction_queue: Arc<Mutex<Transactions>> = Arc::new(Mutex::new(Vec::new()));
-    let condvar = Arc::new((Mutex::new(false), Condvar::new()));
+    let condvar = Arc::new((Mutex::new(0), Condvar::new()));
 
     let blocks_clone = Arc::clone(&blocks);
     let transcation_queue_clone = Arc::clone(&transaction_queue);
@@ -89,32 +121,37 @@ pub fn start_node(port: u16) -> std::io::Result<()> {
         loop {
             thread::sleep(interval);
             info!("Periodic thread running.");
-            let mut transcations = transcation_queue_clone.lock().unwrap();
+            {
+                let mut transcations = transcation_queue_clone.lock().unwrap();
 
-            let block = Block {
-                id: block_id,
-                transactions: transcations.clone(),
-            };
-            transcations.clear();
+                let block = Block {
+                    id: block_id,
+                    transactions: transcations.clone(),
+                };
+                transcations.clear();
+
+                let mut blocks = blocks_clone.write().unwrap();
+                blocks.push(block);
+
+                let (lock, cvar) = &*condvar_clone;
+                let mut notified = lock.lock().unwrap();
+                *notified = block_id;
+
+                cvar.notify_all();
+            }
             block_id += 1;
-
-            let mut blocks = blocks_clone.write().unwrap();
-            blocks.push(block);
-
-            let (lock, cvar) = &*condvar_clone;
-            let mut notified = lock.lock().unwrap();
-            *notified = true;
-            cvar.notify_all();
         }
     });
 
     for stream in listener.incoming() {
         let blocks_clone = Arc::clone(&blocks);
+        let transcation_queue_clone = Arc::clone(&transaction_queue);
+        let condvar_clone = Arc::clone(&condvar);
         match stream {
             Ok(stream) => {
                 // clone signal
                 thread::spawn(|| {
-                    handle_client(stream, blocks_clone);
+                    handle_client(stream, blocks_clone, transcation_queue_clone, condvar_clone);
                 });
             }
             Err(e) => {

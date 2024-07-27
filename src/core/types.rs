@@ -6,10 +6,10 @@ pub type Blocks = Vec<Block>;
 
 #[derive(Clone)]
 pub struct Transaction {
-    id: TranscationId,
-    to: AccountId,
-    from: AccountId,
-    amount: f64,
+    pub id: TranscationId,
+    pub to: AccountId,
+    pub from: AccountId,
+    pub amount: f64,
 }
 
 pub struct Block {
