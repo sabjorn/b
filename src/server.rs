@@ -1,14 +1,28 @@
 use crate::client::ClientCommands;
 use crate::core::constants::MASTER_ID;
 use crate::core::traits::{BlockInfo, TransactionInfo};
-use crate::core::types::{AccountId, Block, BlockId, Blocks, Transaction, Transactions};
+use crate::core::types::{
+    AccountId, Block, BlockId, Blocks, Transaction, TransactionId, Transactions,
+};
 use bincode::{deserialize, serialize};
 use log::{error, info};
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
+
+#[derive(Serialize, Deserialize)]
+pub enum ServerResponse {
+    Transferred {
+        block_id: BlockId,
+        transaction_id: TransactionId,
+    },
+    Balance {
+        balance: f64,
+    },
+}
 
 fn check_account_exists(
     account: AccountId,
@@ -20,6 +34,26 @@ fn check_account_exists(
             .lock()
             .unwrap()
             .contains_account(account)
+}
+
+fn wait_on_block_id(
+    transaction_id: TransactionId,
+    shared_blocks: &Arc<RwLock<Blocks>>,
+    shared_condvar: &Arc<(Mutex<BlockId>, Condvar)>,
+) -> BlockId {
+    let mut block_id: BlockId = 0;
+    let mut block_contains_transaction = false;
+    while !block_contains_transaction {
+        let (lock, cvar) = &**shared_condvar;
+        let cond_block_id = lock.lock().unwrap();
+        let cond_block_id = cvar.wait(cond_block_id).unwrap();
+        block_id = *cond_block_id;
+        block_contains_transaction = shared_blocks
+            .read()
+            .unwrap()
+            .contains_transaction(block_id, transaction_id);
+    }
+    block_id
 }
 
 fn handle_client(
@@ -54,7 +88,7 @@ fn handle_client(
             }
         };
 
-        let return_value: Result<i64, String> = match command {
+        let return_value: Result<ServerResponse, String> = match command {
             ClientCommands::Balance { account } => {
                 info!("account_id: {} recieved", account);
                 match account == MASTER_ID {
@@ -63,7 +97,7 @@ fn handle_client(
                         .read()
                         .unwrap()
                         .calculate_total(account)
-                        .map(|value| value as i64)
+                        .map(|value| ServerResponse::Balance { balance: value })
                         .ok_or_else(|| format!("could not find balance for account: {}", account)),
                 }
             }
@@ -81,17 +115,13 @@ fn handle_client(
                         transactions.push(transaction);
                     }
 
-                    let mut block_contains_transaction = false;
-                    while !block_contains_transaction {
-                        let (lock, cvar) = &*shared_condvar;
-                        let block_id = lock.lock().unwrap();
-                        let block_id = cvar.wait(block_id).unwrap();
-                        block_contains_transaction = shared_blocks
-                            .read()
-                            .unwrap()
-                            .contains_transaction(*block_id, transaction_id);
-                    }
-                    Ok(account as i64)
+                    let block_id =
+                        wait_on_block_id(transaction_id, &shared_blocks, &shared_condvar);
+
+                    Ok(ServerResponse::Transferred {
+                        block_id,
+                        transaction_id,
+                    })
                 };
 
                 match (
@@ -138,17 +168,17 @@ fn handle_client(
                                     let mut transactions = shared_transactions.lock().unwrap();
                                     transactions.push(transaction)
                                 }
-                                let mut block_contains_transaction = false;
-                                while !block_contains_transaction {
-                                    let (lock, cvar) = &*shared_condvar;
-                                    let mut block_id = lock.lock().unwrap();
-                                    let block_id = cvar.wait(block_id).unwrap();
-                                    block_contains_transaction = shared_blocks
-                                        .read()
-                                        .unwrap()
-                                        .contains_transaction(*block_id, transaction_id);
-                                }
-                                Ok(from_account as i64)
+
+                                let block_id = wait_on_block_id(
+                                    transaction_id,
+                                    &shared_blocks,
+                                    &shared_condvar,
+                                );
+
+                                Ok(ServerResponse::Transferred {
+                                    block_id,
+                                    transaction_id,
+                                })
                             } else {
                                 Err(format!(
                                     "Not enough in account {} to transfer {}",
