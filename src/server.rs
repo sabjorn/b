@@ -113,7 +113,7 @@ fn handle_client(
             } => {
                 info!("Received Transfer command");
                 let transfer = || {
-                    let mut sum: Option<f64> = None;
+                    let mut total_balance: Option<f64> = None;
                     {
                         let transactions = shared_transactions.lock().unwrap();
                         let transactions_total = transactions.calculate_total(from_account);
@@ -121,16 +121,17 @@ fn handle_client(
                         let blocks = shared_blocks.read().unwrap();
                         let blocks_total = blocks.calculate_total(from_account);
 
-                        sum = match (transactions_total, blocks_total) {
+                        // total_balance Option type is a proxy for accounts existing 
+                        total_balance = match (transactions_total, blocks_total) {
                             (Some(val1), Some(val2)) => Some(val1 + val2),
                             (Some(val), None) | (None, Some(val)) => Some(val),
                             (None, None) => None,
                         };
                     }
 
-                    match sum {
-                        Some(s) => {
-                            if s >= amount {
+                    match total_balance {
+                        Some(balance) => {
+                            if balance >= amount {
                                 let transaction =
                                     Transaction::new(to_account, from_account, amount);
                                 let transaction_id = transaction.id;
@@ -167,8 +168,6 @@ fn handle_client(
                         "could not transfer because to account id was: MASTER_ID"
                     )),
                     (false, false) => transfer(),
-                    // if !check_account_exists(from_account, &shared_blocks, &shared_transactions) &&
-                    // !check_account_exists(to_account, &shared_blocks, &shared_transactions)
                 }
             }
             _ => Err("Got command that is not implemented".to_string()),
