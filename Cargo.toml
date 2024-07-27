@@ -10,3 +10,4 @@ ctrlc = "3.4.4"
 fern = "0.6.2"
 log = "0.4.22"
 serde = { version = "1.0.204", features = ["derive"] }
+sha2 = "0.10.8"

@@ -27,7 +27,7 @@ pub trait BlockInfo {
 }
 
 impl TransactionInfo for Transactions {
-    fn contains_account(&self, account: AccountId) -> bool{
+    fn contains_account(&self, account: AccountId) -> bool {
         false
     }
 
@@ -49,7 +49,7 @@ impl TransactionInfo for Transactions {
 }
 
 impl TransactionInfo for Block {
-    fn contains_account(&self, account: AccountId) -> bool{
+    fn contains_account(&self, account: AccountId) -> bool {
         false
     }
     fn calculate_total(&self, account: AccountId) -> Option<f64> {
@@ -58,7 +58,7 @@ impl TransactionInfo for Block {
 }
 
 impl TransactionInfo for Blocks {
-    fn contains_account(&self, account: AccountId) -> bool{
+    fn contains_account(&self, account: AccountId) -> bool {
         false
     }
 
