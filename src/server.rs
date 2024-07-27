@@ -1,5 +1,5 @@
 use crate::client::ClientCommands;
-use crate::core::types::TranscationInfo;
+use crate::core::types::TransactionInfo;
 use crate::core::types::{Block, BlockId, Blocks, Transaction, Transactions};
 use bincode::{deserialize, serialize};
 use log::{error, info};
